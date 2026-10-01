@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clip editor</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#141518;--pn:#1e2025;--ln:#33363e;--tx:#e8e9eb;--mu:#8d919b;--ac:#3b9eff;--c1:#ff3fa4;--c2:#25d0e8}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 'IBM Plex Sans',system-ui,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:14px;display:grid;gap:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.mu{color:var(--mu)}
+.pn{background:var(--pn);border:1px solid var(--ln);border-radius:8px;padding:12px}
+button,select,input{font:inherit;color:inherit}
+.btn,button{background:#2a2d34;border:1px solid var(--ln);border-radius:6px;padding:6px 12px;cursor:pointer}
+.btn:hover,button:hover{background:#343841}
+button.on{background:#e8e9eb;color:#141518;border-color:#e8e9eb}
+button.pri{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+select,input[type=text],input[type=number]{background:#141518;border:1px solid var(--ln);border-radius:6px;padding:5px 8px}
+input[type=number]{width:64px}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+#top{display:grid;grid-template-columns:1fr 340px;gap:0}
+@media(max-width:820px){#top{grid-template-columns:1fr}}
+#sw{display:flex;justify-content:center;padding:14px}
+#stage{position:relative;background:#000;touch-action:none;user-select:none}
+#vid{position:absolute;pointer-events:none}
+#dim{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.crop{position:absolute;border:2px solid var(--k);cursor:move}
+.h{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;background:#fff;border:2px solid var(--k)}
+#out{display:flex;flex-direction:column}
+#fbox{position:relative;flex:1;min-height:200px;margin:8px 0}
+#F{position:absolute;left:8px;top:8px;background:#000;outline:1px solid var(--ln)}
+#F.full,#F.pip{left:50%;top:50%;transform:translate(-50%,-50%)}
+#ctl{margin-top:auto;padding-top:8px}
+.ic{width:1.25em;height:1.25em;fill:currentColor;flex:none;vertical-align:-.25em}
+button,.btn{display:inline-flex;align-items:center;gap:6px}
+
+#F canvas{position:absolute;display:block}
+#c1,#c2{box-shadow:inset 0 0 0 2px var(--k)}
+.full #c1{box-shadow:none}
+#split{position:absolute;background:#fff;z-index:2}
+#split::before{content:"";position:absolute;inset:-9px}
+#split::after{content:"";position:absolute;left:50%;top:50%;width:34px;height:14px;margin:-7px 0 0 -17px;background:#fff;border-radius:7px}
+#split.hz{left:0;right:0;height:2px;margin-top:-1px;cursor:ns-resize}
+#split.vt{top:0;bottom:0;width:2px;margin-left:-1px;cursor:ew-resize}
+#rz{position:absolute;right:-9px;bottom:-9px;width:16px;height:16px;background:#fff;border-radius:50%;cursor:nwse-resize;z-index:3}
+#trk{position:relative;height:64px;margin:12px 20px 10px;touch-action:none;cursor:pointer;border-radius:6px;background-color:#111215;background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.045) 0 1px,transparent 1px 10px)}
+#wf{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+#sel{position:absolute;top:0;bottom:0;box-sizing:border-box;background:rgba(59,158,255,.16);border:3px solid var(--ac);border-left:0;border-right:0;pointer-events:none}
+.hd{position:absolute;top:-3px;bottom:-3px;width:14px;background:var(--ac);cursor:ew-resize;z-index:2}
+#hs{margin-left:-14px;border-radius:6px 0 0 6px}
+#he{border-radius:0 6px 6px 0}
+.hd::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:18px;margin:-9px 0 0 -2px;background:radial-gradient(circle,rgba(255,255,255,.9) 1.1px,transparent 1.5px) 0 0/4px 6px}
+#ph{position:absolute;top:-5px;bottom:-5px;width:3px;margin-left:-1.5px;background:#fff;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.4);pointer-events:none;z-index:3}
+.g{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+progress{width:100%;height:8px}
+video.res{max-width:100%;max-height:300px;border-radius:6px;background:#000}
+#empty{text-align:center;padding:60px 12px}
+.tip{position:relative;font-style:normal;color:var(--mu);cursor:help}
+.tip:hover::after,.tip:focus::after{content:attr(data-tip);position:absolute;left:0;top:1.6em;z-index:9;width:250px;padding:8px 10px;background:#000;border:1px solid var(--ln);border-radius:6px;color:var(--tx);white-space:pre-line;font-size:12px;line-height:1.4}
+a.btn{color:var(--tx);text-decoration:none;display:inline-block}
+.g input,.g select{width:100%}
+.g input[type=number]{width:100%}
+summary{cursor:pointer}
+.dz{position:relative}
+.dz::after{content:"";position:absolute;inset:5px;border:2px dotted var(--mu);border-radius:6px;opacity:0;transition:opacity .15s,inset .15s;pointer-events:none}
+.dz:hover::after{opacity:.4;inset:9px}
+body.dragging .dz::after{opacity:.6;inset:9px}
+.dz.over::after{opacity:1;inset:13px;border-color:var(--ac)}
+#pz{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;background:#fff;border:2px solid var(--c1);border-radius:50%;cursor:nwse-resize;z-index:3}
+.pip #c2{cursor:move}
+.seg{display:inline-flex}.seg button{border-radius:0;margin-left:-1px}.seg button:first-child{border-radius:6px 0 0 6px;margin:0}.seg button:last-child{border-radius:0 6px 6px 0}
+#cmd{resize:vertical;width:100%;height:150px;margin-top:4px;background:#0d0e10;color:#cfd3da;border:1px solid var(--ln);border-radius:6px;padding:8px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre}
+#trk.zm{outline:1px dashed var(--ac);outline-offset:6px;border-radius:4px}
+#trk.zm::after{content:"zoomed";position:absolute;right:0;top:-18px;font-size:11px;color:var(--ac)}
+#app{padding:0}
+.sec{border-top:1px solid var(--ln);padding:12px 14px}
+#out{padding:12px;border-left:1px solid var(--ln)}
+#empty{cursor:pointer}
+@media(max-width:820px){#out{border-left:0;border-top:1px solid var(--ln)}}
+#tb{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;margin-bottom:14px}
+.tbl{display:flex;gap:8px;justify-self:start}
+.tbc{display:flex;align-items:center;gap:10px}
+.times{display:inline-flex;align-items:center;gap:4px}
+.tbr{display:flex;align-items:center;gap:8px;justify-self:end}
+button.ib{position:relative;padding:6px 9px}
+button.ib .ic{width:1.35em;height:1.35em}
+.ib:hover::after,.ib:focus-visible::after{content:attr(data-tip);position:absolute;left:0;top:calc(100% + 6px);z-index:9;padding:4px 8px;background:#000;border:1px solid var(--ln);border-radius:6px;color:var(--tx);font-size:12px;white-space:nowrap;pointer-events:none}
+@media(max-width:760px){#tb{grid-template-columns:1fr;justify-items:center}.tbl,.tbr{justify-self:center}}
+#loupe{position:absolute;width:150px;height:150px;margin:-75px 0 0 -75px;border:3px solid #fff;border-radius:50%;box-shadow:0 6px 20px rgba(0,0,0,.65);pointer-events:none;z-index:5000;image-rendering:pixelated;background:#000}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="ph-rectangle" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200Z"/></symbol><symbol id="ph-square-split-vertical" viewBox="0 0 256 256"><path d="M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,16v64H56V56Zm0,144H56V136H200v64Z"/></symbol><symbol id="ph-picture-in-picture" viewBox="0 0 256 256"><path d="M216,48H40A16,16,0,0,0,24,64V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V64A16,16,0,0,0,216,48ZM40,64H216v56H136a8,8,0,0,0-8,8v64H40ZM216,192H144V136h72v56Z"/></symbol><symbol id="ph-upload" viewBox="0 0 256 256"><path d="M240,136v64a16,16,0,0,1-16,16H32a16,16,0,0,1-16-16V136a16,16,0,0,1,16-16H80a8,8,0,0,1,0,16H32v64H224V136H176a8,8,0,0,1,0-16h48A16,16,0,0,1,240,136ZM85.66,77.66,120,43.31V128a8,8,0,0,0,16,0V43.31l34.34,34.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,77.66ZM200,168a12,12,0,1,0-12,12A12,12,0,0,0,200,168Z"/></symbol><symbol id="ph-arrows-clockwise" viewBox="0 0 256 256"><path d="M224,48V96a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h28.69L182.06,73.37a79.56,79.56,0,0,0-56.13-23.43h-.45A79.52,79.52,0,0,0,69.59,72.71,8,8,0,0,1,58.41,61.27a96,96,0,0,1,135,.79L208,76.69V48a8,8,0,0,1,16,0ZM186.41,183.29a80,80,0,0,1-112.47-.66L59.31,168H88a8,8,0,0,0,0-16H40a8,8,0,0,0-8,8v48a8,8,0,0,0,16,0V179.31l14.63,14.63A95.43,95.43,0,0,0,130,222.06h.53a95.36,95.36,0,0,0,67.07-27.33,8,8,0,0,0-11.18-11.44Z"/></symbol><symbol id="ph-speaker-x-fill" viewBox="0 0 256 256"><path d="M245.66,146.34a8,8,0,0,1-11.32,11.32L216,139.31l-18.34,18.35a8,8,0,0,1-11.32-11.32L204.69,128l-18.35-18.34a8,8,0,0,1,11.32-11.32L216,116.69l18.34-18.35a8,8,0,0,1,11.32,11.32L227.31,128ZM60,80H32A16,16,0,0,0,16,96v64a16,16,0,0,0,16,16H60a4,4,0,0,0,4-4V84A4,4,0,0,0,60,80Zm97.15-54.15a8,8,0,0,0-10-.16l-65.57,51A4,4,0,0,0,80,79.84v96.32a4,4,0,0,0,1.55,3.15l65.57,51a8,8,0,0,0,9,.56,8.29,8.29,0,0,0,3.91-7.18V32.25A8.27,8.27,0,0,0,157.12,25.85Z"/></symbol><symbol id="ph-speaker-high-fill" viewBox="0 0 256 256"><path d="M160,32.25V223.69a8.29,8.29,0,0,1-3.91,7.18,8,8,0,0,1-9-.56l-65.57-51A4,4,0,0,1,80,176.16V79.84a4,4,0,0,1,1.55-3.15l65.57-51a8,8,0,0,1,10,.16A8.27,8.27,0,0,1,160,32.25ZM60,80H32A16,16,0,0,0,16,96v64a16,16,0,0,0,16,16H60a4,4,0,0,0,4-4V84A4,4,0,0,0,60,80Zm126.77,20.84a8,8,0,0,0-.72,11.3,24,24,0,0,1,0,31.72,8,8,0,1,0,12,10.58,40,40,0,0,0,0-52.88A8,8,0,0,0,186.74,100.84Zm40.89-26.17a8,8,0,1,0-11.92,10.66,64,64,0,0,1,0,85.34,8,8,0,1,0,11.92,10.66,80,80,0,0,0,0-106.66Z"/></symbol><symbol id="ph-play-fill" viewBox="0 0 256 256"><path d="M240,128a15.74,15.74,0,0,1-7.6,13.51L88.32,229.65a16,16,0,0,1-16.2.3A15.86,15.86,0,0,1,64,216.13V39.87a15.86,15.86,0,0,1,8.12-13.82,16,16,0,0,1,16.2.3L232.4,114.49A15.74,15.74,0,0,1,240,128Z"/></symbol><symbol id="ph-pause-fill" viewBox="0 0 256 256"><path d="M216,48V208a16,16,0,0,1-16,16H160a16,16,0,0,1-16-16V48a16,16,0,0,1,16-16h40A16,16,0,0,1,216,48ZM96,32H56A16,16,0,0,0,40,48V208a16,16,0,0,0,16,16H96a16,16,0,0,0,16-16V48A16,16,0,0,0,96,32Z"/></symbol><symbol id="ph-film-reel" viewBox="0 0 256 256"><path d="M232,216H183.36A103.95,103.95,0,1,0,128,232H232a8,8,0,0,0,0-16ZM40,128a88,88,0,1,1,88,88A88.1,88.1,0,0,1,40,128Zm88-24a24,24,0,1,0-24-24A24,24,0,0,0,128,104Zm0-32a8,8,0,1,1-8,8A8,8,0,0,1,128,72Zm24,104a24,24,0,1,0-24,24A24,24,0,0,0,152,176Zm-32,0a8,8,0,1,1,8,8A8,8,0,0,1,120,176Zm56-24a24,24,0,1,0-24-24A24,24,0,0,0,176,152Zm0-32a8,8,0,1,1-8,8A8,8,0,0,1,176,120ZM80,104a24,24,0,1,0,24,24A24,24,0,0,0,80,104Zm0,32a8,8,0,1,1,8-8A8,8,0,0,1,80,136Z"/></symbol><symbol id="ph-download" viewBox="0 0 256 256"><path d="M240,136v64a16,16,0,0,1-16,16H32a16,16,0,0,1-16-16V136a16,16,0,0,1,16-16H72a8,8,0,0,1,0,16H32v64H224V136H184a8,8,0,0,1,0-16h40A16,16,0,0,1,240,136Zm-117.66-2.34a8,8,0,0,0,11.32,0l48-48a8,8,0,0,0-11.32-11.32L136,108.69V24a8,8,0,0,0-16,0v84.69L85.66,74.34A8,8,0,0,0,74.34,85.66ZM200,168a12,12,0,1,0-12,12A12,12,0,0,0,200,168Z"/></symbol><symbol id="ph-copy" viewBox="0 0 256 256"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"/></symbol></svg>
+<main>
+<header class="row">
+  <b style="font-size:16px">Clip editor</b>
+  <label class="btn">Open video<input id="file" type="file" accept="video/*" hidden></label>
+  <span id="fname" class="mu"></span>
+  <span id="eng" class="mu" style="margin-left:auto">WebCodecs via Mediabunny · ffmpeg.wasm loads on demand</span>
+</header>
+<div id="empty" class="pn mu dz" tabindex="0" role="button" aria-label="Choose a video file"><svg class="ic" style="width:34px;height:34px;display:block;margin:0 auto 8px"><use href="#ph-upload"/></svg>Drop a video anywhere, or click here to choose a file.</div>
+
+<div id="app" class="pn" hidden>
+  <div id="top">
+    <div id="sw" class="dz">
+      <div id="stage">
+        <video id="vid" playsinline></video>
+        <svg id="dim" preserveAspectRatio="none"><defs><mask id="mk"><rect id="mr" fill="#fff"/><g id="holes" fill="#000"></g></mask></defs><rect id="dr" mask="url(#mk)" fill="rgba(0,0,0,.35)"/></svg>
+        <div id="crops"></div><canvas id="loupe" hidden></canvas>
+      </div>
+    </div>
+    <div id="out">
+      <div class="row"><b>Output</b><span id="info" class="mu" style="margin-left:auto"></span></div>
+      <div id="fbox"><div id="F"><canvas id="c1"></canvas><canvas id="c2"></canvas><div id="split"></div><i id="rz" title="Drag to change aspect ratio"></i><i id="pz" title="Resize overlay" hidden></i></div></div>
+      <div id="ctl" class="row">
+        <span class="mu" id="rlab">Ratio</span>
+        <select id="ratio"></select>
+        <span id="cust" class="row" style="gap:4px" hidden><input id="ra" type="number" min="0.01" step="0.01" value="9"><span>:</span><input id="rb" type="number" min="0.01" step="0.01" value="16"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div id="tb">
+      <span class="tbl"><button id="mu" class="ib" data-tip="Sound on" aria-label="Sound on"><svg class="ic"><use href="#ph-speaker-high-fill"/></svg></button><button id="rot" class="ib" data-tip="Rotate" aria-label="Rotate"><svg class="ic"><use href="#ph-arrows-clockwise"/></svg></button></span>
+      <span class="tbc"><button id="pl" style="min-width:92px;justify-content:center"><svg class="ic"><use href="#ph-play-fill"/></svg> Play</button><span class="times"><input id="ts" type="text" size="7" aria-label="Start"><span class="mu">to</span><input id="te" type="text" size="7" aria-label="End"></span></span>
+      <span class="tbr"><span class="row"><span class="mu">Crop</span><span class="seg"><button id="mFull"><svg class="ic"><use href="#ph-rectangle"/></svg> Full</button><button id="mStack"><svg class="ic"><use href="#ph-square-split-vertical"/></svg> Stacked</button><button id="mPip"><svg class="ic"><use href="#ph-picture-in-picture"/></svg> PiP</button></span></span></span>
+    </div>
+    <div id="trk"><canvas id="wf"></canvas><div id="sel"></div><div id="ph"></div><div class="hd" id="hs"></div><div class="hd" id="he"></div></div>
+  </div>
+  <div class="sec">
+    <div class="row" style="gap:16px;align-items:flex-end">
+      <label style="flex:1;min-width:220px">Quality <b id="qv">100%</b><input id="q" type="range" min="0" max="100" value="100" style="width:100%"></label>
+      <label>Video codec <i class="tip" tabindex="0" data-tip="H.264: plays everywhere, fast to encode.&#10;H.265: ~35% smaller, poor browser support.&#10;VP9: efficient WebM, slow to encode.&#10;VP8: older WebM, weak compression.&#10;AV1: best compression, very slow to encode.&#10;Audio: AAC for H.264/H.265, Opus for VP8/VP9/AV1. VP8/VP9 use WebM, others MP4. At 100% quality, matching the source codec (with default audio/bitrate/fps settings) enables smart cut.">ⓘ</i><br><select id="codec"></select></label>
+      <span class="row"><button id="go" class="pri"><svg class="ic"><use href="#ph-film-reel"/></svg> Export</button><button id="cancel" hidden>Cancel</button></span>
+    </div>
+    <div id="est" style="margin-top:8px"></div><div id="sinfo" class="mu"></div><div id="hwn" class="mu"></div>
+    <details style="margin-top:10px"><summary>Advanced</summary>
+     <div class="g" style="margin-top:10px">
+      <label>Encoder speed <i class="tip" tabindex="0" data-tip="Slower settings compress better at the same quality but take much longer in wasm.">ⓘ</i><br><select id="preset"><option value="0">Fastest</option><option value="1" selected>Fast</option><option value="2">Balanced</option></select></label>
+      <label>Video bitrate (kb/s) <i class="tip" tabindex="0" data-tip="Overrides the bitrate derived from the quality slider. Ignored if CRF is set.">ⓘ</i><br><input id="vb" type="number" min="50" placeholder="auto"></label>
+      <label>CRF <i class="tip" tabindex="0" data-tip="Constant-quality mode, replaces the bitrate target. Lower = better and larger. Typical: 18-28 for H.264/H.265, 25-38 for VP9/AV1. File size becomes unpredictable.">ⓘ</i><br><input id="crf" type="number" min="0" max="63" placeholder="off"></label>
+      <label>Audio <i class="tip" tabindex="0" data-tip="Auto: copy above 85% quality, otherwise copy only if the source bitrate is already low enough, else re-encode. Copy falls back to re-encode if the codec doesn't fit the container.">ⓘ</i><br><select id="am"><option value="auto">Auto</option><option value="copy">Copy</option><option value="enc">Re-encode</option></select></label>
+      <label>Audio bitrate (kb/s) <i class="tip" tabindex="0" data-tip="Used when audio is re-encoded. Auto: 64-128 kb/s by quality (x0.75 for Opus).">ⓘ</i><br><input id="ab" type="number" min="16" placeholder="auto"></label>
+      <label>Max side <i class="tip" tabindex="0" data-tip="Source: output never exceeds the source frame (long side up to the source long side, short side up to the source short side), so cropping or stacking won't upscale past the source.&#10;No limit: keep crop resolution as is.&#10;Others: cap the longest side.">ⓘ</i><br><select id="maxs"><option value="src" selected>Source</option><option value="0">No limit</option><option value="1920">1920 px</option><option value="1280">1280 px</option><option value="960">960 px</option><option value="640">640 px</option></select></label>
+      <label>Frame rate <i class="tip" tabindex="0" data-tip="Drops frames to reduce size. Only lowers the rate, never raises it. Disables smart cut.">ⓘ</i><br><select id="fps"><option value="0">Source</option><option>60</option><option>50</option><option>30</option><option>25</option><option>24</option><option>15</option><option>12</option><option>10</option></select></label>
+      <label>Encoder <i class="tip" tabindex="0" data-tip="Auto: hardware-accelerated WebCodecs (via Mediabunny) when the browser can encode the chosen codec, otherwise ffmpeg.wasm.&#10;Hardware: WebCodecs only.&#10;Software: ffmpeg.wasm (slower; always used for smart cut and CRF).">ⓘ</i><br><select id="encsel"><option value="auto">Auto</option><option value="hw">Hardware (WebCodecs)</option><option value="sw">Software (ffmpeg.wasm)</option></select></label>
+     </div>
+     <div style="margin-top:12px"><div class="row"><span class="mu">Equivalent commands (bash, native ffmpeg + ffprobe)</span><button id="cpy" style="margin-left:auto"><svg class="ic"><use href="#ph-copy"/></svg> Copy</button></div><textarea id="cmd" readonly spellcheck="false" wrap="off"></textarea></div>
+    </details>
+    <div id="st" style="margin-top:10px" hidden><progress id="pg" max="1" value="0"></progress><div id="msg" class="mu"></div></div>
+    <div id="res" style="margin-top:10px" hidden></div>
+  </div>
+</div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const dbg=(...a)=>console.debug('[clip]',...a);
+const HOLD_MS=2500;
+/* fires cb once if the pointer stays within 6px for HOLD_MS; moving further restarts the countdown from the new spot */
+function holdWatch(e,cb){let hx=e.clientX,hy=e.clientY,done=false,last=e;const fire=()=>{done=true;cb(last)};let tm=setTimeout(fire,HOLD_MS);
+  return{move(v){last=v;if(done)return;if(Math.hypot(v.clientX-hx,v.clientY-hy)>6){clearTimeout(tm);hx=v.clientX;hy=v.clientY;tm=setTimeout(fire,HOLD_MS)}},stop(){clearTimeout(tm)}}}
+const LZ=10,LS=144;
+function drawLoupe(){const l=S.lp;if(!l)return;const r=S.r[l.i],c=$('loupe'),d=devicePixelRatio||1,n=Math.round(LS*d),x=c.getContext('2d');if(!x)return;
+  if(c.width!==n){c.width=n;c.height=n}
+  const ax=r.x+(l.hx+1)/2*r.w,ay=r.y+(l.hy+1)/2*r.h,z=LZ*d;
+  x.imageSmoothingEnabled=false;x.fillStyle='#000';x.fillRect(0,0,n,n);
+  x.save();x.translate(n/2,n/2);x.scale(z,z);x.translate(-ax,-ay);x.translate(S.W/2,S.H/2);x.rotate(S.rot*Math.PI/180);
+  if(vid.readyState>=2)x.drawImage(vid,-S.vw/2,-S.vh/2,S.vw,S.vh);x.restore();
+  x.lineWidth=Math.max(1,d*1.5);
+  for(const j of active()){const q=S.r[j];x.strokeStyle=S.mode==='full'?'#fff':j==1?'#ff3fa4':'#25d0e8';x.strokeRect(n/2+(q.x-ax)*z,n/2+(q.y-ay)*z,q.w*z,q.h*z)}
+  x.strokeStyle='rgba(255,255,255,.9)';x.beginPath();x.moveTo(n/2-8*d,n/2);x.lineTo(n/2+8*d,n/2);x.moveTo(n/2,n/2-8*d);x.lineTo(n/2,n/2+8*d);x.stroke();
+  c.style.left=ax/S.W*stage.clientWidth+'px';c.style.top=ay/S.H*stage.clientHeight+'px'}
+const IC=n=>`<svg class="ic"><use href="#ph-${n}"/></svg>`;
+const S={file:null,W:0,H:0,vw:0,vh:0,dur:0,rot:0,v0:0,v1:0,mode:'none',pip:{x:.66,y:.05,w:.3},pipInit:false,sel:{full:'free',pip:'free',stack:'9:16'},fa:0,fp:0,pAnc:null,info:null,inFS:false,inn:'in.mp4',enc:null,saved:null,fw:169,fh:300,s:.5,r:[{},{},{}],a:[0,1,1],t0:0,t1:0};
+const vid=$('vid'),stage=$('stage'),crops=$('crops'),F=$('F'),c1=$('c1'),c2=$('c2'),split=$('split'),trk=$('trk');
+const fc=document.createElement('canvas'),fx=fc.getContext('2d');
+let pv=1,dirty=true;
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const ev=x=>Math.max(2,2*Math.round(x/2));
+const fmt=t=>{const m=Math.floor(t/60);return m+':'+(t-m*60).toFixed(2).padStart(5,'0')};
+const parse=s=>{s=s.trim();if(s.includes(':')){const[a,b]=s.split(':');return +a*60+ +b}return +s};
+const active=()=>S.mode==='none'?[]:S.mode==='full'?[0]:[1,2];
+const R=i=>i===0&&S.mode==='none'?{x:0,y:0,w:S.W,h:S.H}:S.r[i];
+const PRE=[['9:16',9/16],['3:4',.75],['4:5',.8],['1:1',1],['5:4',1.25],['4:3',4/3],['16:9',16/9],['21:9',21/9]];
+fillRatio();
+const boxSz=()=>{const b=$('fbox');return[Math.max(100,b.clientWidth-20),Math.max(100,b.clientHeight-20)]};
+const fitA=A=>{const[bw,bh]=boxSz();return A>=bw/bh?[bw,bw/A]:[bh*A,bh]};
+
+/* ---------- load ---------- */
+$('file').onchange=e=>load(e.target.files[0]);
+addEventListener('dragover',e=>e.preventDefault());
+$('empty').onclick=()=>$('file').click();
+$('empty').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('file').click()}};
+let dc=0;const dzs=[...document.querySelectorAll('.dz')];
+addEventListener('dragenter',()=>{dc++;document.body.classList.add('dragging')});
+addEventListener('dragleave',()=>{if(--dc<=0){dc=0;document.body.classList.remove('dragging')}});
+dzs.forEach(el=>{el.ondragenter=el.ondragover=()=>el.classList.add('over');el.ondragleave=e=>{if(!el.contains(e.relatedTarget))el.classList.remove('over')}});
+addEventListener('drop',e=>{e.preventDefault();dc=0;document.body.classList.remove('dragging');dzs.forEach(el=>el.classList.remove('over'));load(e.dataTransfer.files[0])});
+function load(f){if(!f)return;S.file=f;S.inn='in.'+((f.name.match(/\.(\w+)$/)||[,'mp4'])[1]).toLowerCase();S.inFS=false;S.info=null;S.codecTouched=false;S.wf=null;S.wid=(S.wid||0)+1;analyze();vid.src=URL.createObjectURL(f);$('fname').textContent=f.name;$('res').hidden=true}
+vid.onloadedmetadata=()=>{S.vw=vid.videoWidth;S.vh=vid.videoHeight;S.dur=vid.duration;S.t0=0;S.t1=S.dur;S.v0=0;S.v1=S.dur;S.rot=0;
+  $('empty').hidden=true;$('app').hidden=false;setDims();resetCrops();buildCrops();resize();sync();tl();vid.currentTime=0};
+vid.onseeked=vid.onloadeddata=()=>dirty=true;
+vid.onplay=()=>$('pl').innerHTML=IC('pause-fill')+' Pause';vid.onpause=()=>$('pl').innerHTML=IC('play-fill')+' Play';
+function setDims(){const o=S.rot%180;S.W=o?S.vh:S.vw;S.H=o?S.vw:S.vh;pv=Math.min(1,1280/Math.max(S.W,S.H));fc.width=Math.round(S.W*pv);fc.height=Math.round(S.H*pv)}
+function resetCrops(){const W=S.W,H=S.H;S.r[0]={x:0,y:0,w:W,h:H};
+  S.r[1]={x:W*.1,y:H*.1,w:W*.5,h:H*.5};S.r[2]={x:W*.4,y:H*.4,w:W*.5,h:H*.5};updateAsp();
+  if(S.sel.full==='orig')S.fa=W/H;S.a[0]=S.fa;if(S.fa){S.r[0].ar=W*H;setAsp(0)}
+  S.pipInit=false;if(S.mode==='pip')initPip()}
+
+/* ---------- crop geometry ---------- */
+function updateAsp(){const A=S.fw/S.fh,s=S.s,v=A<1;S.a[1]=v?A/s:A*s;S.a[2]=v?A/(1-s):A*(1-s);setAsp(1);setAsp(2)}
+function setAsp(i){const r=S.r[i],a=S.a[i],cx=r.x+r.w/2,cy=r.y+r.h/2;r.ar=r.ar||r.w*r.h;
+  let w=Math.sqrt(r.ar*a),h=w/a;const k=Math.min(1,S.W/w,S.H/h);w*=k;h*=k;
+  r.w=w;r.h=h;r.x=clamp(cx-w/2,0,S.W-w);r.y=clamp(cy-h/2,0,S.H-h)}
+function buildCrops(){crops.innerHTML='';const full=S.mode==='full';
+  active().forEach(i=>{const d=document.createElement('div');d.className='crop';d.dataset.i=i;
+    d.style.setProperty('--k',full?'#fff':i==1?'var(--c1)':'var(--c2)');
+    const hs=(full?!S.fa:S.mode==='pip'?(i===1||!S.fp):false)?[[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]]:[[-1,-1],[1,-1],[-1,1],[1,1]];
+    hs.forEach(([x,y])=>{const h=document.createElement('i');h.className='h';h.style.left=(x+1)*50+'%';h.style.top=(y+1)*50+'%';
+      h.style.cursor=x&&y?(x*y>0?'nwse-resize':'nesw-resize'):x?'ew-resize':'ns-resize';h.onpointerdown=e=>drag(e,i,x,y);d.append(h)});
+    d.onpointerdown=e=>{if(e.target===d)drag(e,i,0,0)};crops.append(d)})}
+function drag(e,i,hx,hy){e.preventDefault();e.stopPropagation();
+  const st=stage.getBoundingClientRect(),r=S.r[i],o={...r},fixed=S.mode==='stack'||(S.mode==='full'&&!!S.fa)||(S.mode==='pip'&&i===2&&!!S.fp),W=S.W,H=S.H,M=16;
+  const P=v=>[(v.clientX-st.left)/st.width*W,(v.clientY-st.top)/st.height*H],[px0,py0]=P(e);
+  const anc=()=>[r.x+(hx+1)/2*r.w,r.y+(hy+1)/2*r.h],[ax0,ay0]=anc(),gx=hx?ax0-px0:0,gy=hy?ay0-py0:0;let fine=null;
+  const hw=(hx||hy)?holdWatch(e,v=>{const[x,y]=anc();fine={x,y,cx:v.clientX,cy:v.clientY};S.lp={i,hx,hy};$('loupe').hidden=false;dbg('crop loupe on',{crop:i,handle:[hx,hy]});drawLoupe()}):null;
+  const mv=v=>{hw&&hw.move(v);let[px,py]=fine?[Math.round(fine.x+(v.clientX-fine.cx)/LZ),Math.round(fine.y+(v.clientY-fine.cy)/LZ)]:P(v);if(!fine){px+=gx;py+=gy}
+    if(!hx&&!hy){r.x=clamp(o.x+px-px0,0,W-o.w);r.y=clamp(o.y+py-py0,0,H-o.h)}
+    else if(fixed){const a=S.a[i],ax=hx>0?o.x:o.x+o.w,ay=hy>0?o.y:o.y+o.h,mw=hx>0?W-ax:ax,mh=hy>0?H-ay:ay;
+      let w=clamp(Math.max((px-ax)*hx,(py-ay)*hy*a),M,mw),h=w/a;if(h>mh){h=mh;w=h*a}
+      r.w=w;r.h=h;r.x=hx>0?ax:ax-w;r.y=hy>0?ay:ay-h;r.ar=w*h}
+    else{let l=o.x,t=o.y,rt=o.x+o.w,b=o.y+o.h;
+      if(hx<0)l=clamp(px,0,rt-M);if(hx>0)rt=clamp(px,l+M,W);
+      if(hy<0)t=clamp(py,0,b-M);if(hy>0)b=clamp(py,t+M,H);
+      r.x=l;r.y=t;r.w=rt-l;r.h=b-t}
+    sync()};
+  addEventListener('pointermove',mv);addEventListener('pointerup',()=>{removeEventListener('pointermove',mv);hw&&hw.stop();if(S.lp){S.lp=null;$('loupe').hidden=true}},{once:true})}
+
+/* ---------- layout / render ---------- */
+function resize(){if(!S.W)return;const mw=$('sw').clientWidth-30,mh=Math.min(innerHeight*.62,640),k=Math.min(mw/S.W,mh/S.H),sw=S.W*k,sh=S.H*k,o=S.rot%180,ew=o?sh:sw,eh=o?sw:sh;
+  stage.style.width=sw+'px';stage.style.height=sh+'px';
+  Object.assign(vid.style,{width:ew+'px',height:eh+'px',left:(sw-ew)/2+'px',top:(sh-eh)/2+'px',transform:`rotate(${S.rot}deg)`})}
+addEventListener('resize',resize);
+function sync(){dirty=true;const W=S.W,H=S.H;
+  [...crops.children].forEach(d=>{const r=S.r[d.dataset.i];Object.assign(d.style,{zIndex:Math.round((1-r.w*r.h/(W*H))*1000),left:r.x/W*100+'%',top:r.y/H*100+'%',width:r.w/W*100+'%',height:r.h/H*100+'%'})});
+  $('dim').setAttribute('viewBox',`0 0 ${W} ${H}`);
+  for(const id of['mr','dr']){const e=$(id);e.setAttribute('width',W);e.setAttribute('height',H)}
+  $('holes').innerHTML=active().map(i=>{const r=S.r[i];return`<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`}).join('');
+  $('dr').style.display=S.mode==='none'?'none':'';frame();const L=outLayout();$('info').textContent=L.w+' × '+L.h;est();if(S.lp)drawLoupe()}
+const pipA=()=>[S.r[1].w/S.r[1].h,S.r[2].w/S.r[2].h];
+/* handle side per axis: 0 = handle at end (overlay pinned to start), 1 = handle at start (pinned to end), .5 = symmetric.
+   Overlay position along its travel range (0..1-size) in the outer third and within 50% of its own size from that frame edge -> pinned there; both axes central -> default (pinned top-left, handle bottom-right). */
+function pipAnc(){const P=S.pip,h=pipH(),f=(x,w)=>{const t=1-w,u=t<.01?.5:x/t,side=u<1/3?0:u>2/3?1:.5;if(side===0&&x>.5*w)return .5;if(side===1&&t-x>.5*w)return .5;return side};
+  const a=[f(P.x,P.w),f(P.y,h)];return a[0]===.5&&a[1]===.5?[0,0]:a}
+function pipH(){const[a1,fa]=pipA();return S.pip.w*fa/a1}
+function clampPip(){const P=S.pip,[a1,fa]=pipA();P.w=clamp(P.w,.05,Math.min(1,a1/fa));const h=P.w*fa/a1;P.x=clamp(P.x,0,1-P.w);P.y=clamp(P.y,0,1-h)}
+function frame(){const m=S.mode,st=m==='stack',pip=m==='pip';let fw=S.fw,fh=S.fh;if(pip)clampPip();
+  if(!st){const r=pip?S.r[2]:R(0);[fw,fh]=fitA(r.w/r.h)}
+  F.style.width=fw+'px';F.style.height=fh+'px';F.className=pip?'pip':st?'':'full';
+  c2.hidden=!st&&!pip;split.hidden=$('rz').hidden=!st;$('pz').hidden=!pip;
+  const B=(l,t,w,h)=>`left:${l}%;top:${t}%;width:${w}%;height:${h}%`;
+  if(pip){const P=S.pip,h=pipH();c1.style.cssText=B(0,0,100,100);c2.style.cssText=B(P.x*100,P.y*100,P.w*100,h*100);const[ax,ay]=S.pAnc||pipAnc();$('pz').style.cssText=`left:${(ax===1?P.x:ax===.5?P.x+P.w/2:P.x+P.w)*100}%;top:${(ay===1?P.y:ay===.5?P.y+h/2:P.y+h)*100}%;cursor:${ax===.5?'ns-resize':ay===.5?'ew-resize':ax===ay?'nwse-resize':'nesw-resize'}`}
+  else if(!st)c1.style.cssText=B(0,0,100,100);
+  else{const v=fw<fh,s=S.s*100;
+    c1.style.cssText=v?`left:0;top:0;width:100%;height:${s}%`:`left:0;top:0;height:100%;width:${s}%`;
+    c2.style.cssText=v?`left:0;top:${s}%;width:100%;height:${100-s}%`:`top:0;left:${s}%;height:100%;width:${100-s}%`;
+    split.className=v?'hz':'vt';split.style.cssText=v?`top:${s}%`:`left:${s}%`}
+  c1.style.setProperty('--k',pip?'var(--c2)':'var(--c1)');c2.style.setProperty('--k',pip?'var(--c1)':'var(--c2)')}
+function draw(){if(vid.readyState<2)return;const o=S.rot%180,vw=o?fc.height:fc.width,vh=o?fc.width:fc.height;
+  fx.save();fx.translate(fc.width/2,fc.height/2);fx.rotate(S.rot*Math.PI/180);fx.drawImage(vid,-vw/2,-vh/2,vw,vh);fx.restore();
+  const d=devicePixelRatio||1,idx=S.mode==='stack'?[1,2]:S.mode==='pip'?[2,1]:[0];
+  [c1,c2].slice(0,idx.length).forEach((c,k)=>{const r=R(idx[k]),w=Math.round(c.clientWidth*d),h=Math.round(c.clientHeight*d);if(!w||!h)return;
+    if(c.width!==w||c.height!==h){c.width=w;c.height=h}
+    c.getContext('2d').drawImage(fc,r.x*pv,r.y*pv,r.w*pv,r.h*pv,0,0,w,h)})}
+(function loop(){if(S.W){if(dirty||!vid.paused){draw();dirty=false}
+  if(!vid.paused&&vid.currentTime>=S.t1)vid.currentTime=S.t0;
+  {const p=tpos(vid.currentTime),e=$('ph');e.style.left=p*100+'%';e.style.display=p<0||p>1?'none':''}}requestAnimationFrame(loop)})();
+
+/* ---------- stacked-mode controls ---------- */
+function setA(A){A=clamp(A,.25,4);[S.fw,S.fh]=fitA(A);updateAsp();sync()}
+function rmode(){return S.mode==='stack'?'stack':S.mode==='pip'?'pip':'full'}
+function fillRatio(){const m=rmode(),o=(m!=='stack'?[['free','Freeform'],['orig','Original']]:[]).concat(PRE.map(p=>[p[0],p[0]]),[['custom','Custom']]);
+  $('ratio').innerHTML=o.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('');$('ratio').value=S.sel[m];$('cust').hidden=S.sel[m]!=='custom';$('rlab').textContent=m==='full'?'Crop ratio':m==='pip'?'Base crop ratio':'Output ratio'}
+function applyRatio(){const v=$('ratio').value,m=rmode();S.sel[m]=v;$('cust').hidden=v!=='custom';
+  const A=v==='custom'?$('ra').value/$('rb').value:v==='orig'?S.W/S.H:(PRE.find(p=>p[0]===v)||[0,0])[1];
+  if(m==='full'){S.fa=v==='free'?0:clamp(A,.1,10);S.a[0]=S.fa;buildCrops();if(S.fa){S.r[0].ar=S.r[0].w*S.r[0].h;setAsp(0)}sync()}
+  else if(m==='pip'){S.fp=v==='free'?0:clamp(A,.1,10);S.a[2]=S.fp;buildCrops();if(S.fp){S.r[2].ar=S.r[2].w*S.r[2].h;setAsp(2)}sync()}
+  else setA(A)}
+const gcd=(a,b)=>b?gcd(b,a%b):a;
+function pairFor(v){if(v==='custom')return[$('ra').value,$('rb').value];const q=PRE.find(x=>x[0]===v);if(q){const[a,b]=v.split(':');return[+a,+b]}
+  const r=rmode()==='pip'?S.r[2]:S.r[0],w=Math.round(v==='orig'?S.W:r.w),h=Math.round(v==='orig'?S.H:r.h),g=gcd(w,h);
+  return w/g<=100&&h/g<=100?[w/g,h/g]:[+(w/h).toFixed(2),1]}
+$('ratio').onchange=()=>{const m=rmode(),prev=S.sel[m];if($('ratio').value==='custom'&&prev!=='custom'){const[a,b]=pairFor(prev);$('ra').value=a;$('rb').value=b;dbg('custom ratio seeded from',prev,[a,b])}applyRatio()};
+$('ra').oninput=$('rb').oninput=applyRatio;
+$('rz').onpointerdown=e=>{e.preventDefault();e.stopPropagation();const rc=F.getBoundingClientRect();
+  const mv=v=>{let w=clamp(v.clientX-rc.left,60,boxSz()[0]),h=clamp(v.clientY-rc.top,60,boxSz()[1]),A=w/h,hit=PRE.find(p=>Math.abs(A/p[1]-1)<.025);
+    if(hit){A=hit[1];h=w/A}S.fw=w;S.fh=h;$('ratio').value=S.sel.stack=hit?hit[0]:'custom';$('cust').hidden=!!hit;
+    if(!hit){$('ra').value=A.toFixed(2);$('rb').value=1}updateAsp();sync()};
+  addEventListener('pointermove',mv);addEventListener('pointerup',()=>removeEventListener('pointermove',mv),{once:true})};
+split.onpointerdown=e=>{e.preventDefault();const rc=F.getBoundingClientRect(),v=S.fw<S.fh;
+  const mv=x=>{S.s=clamp(v?(x.clientY-rc.top)/rc.height:(x.clientX-rc.left)/rc.width,.2,.8);updateAsp();sync()};
+  addEventListener('pointermove',mv);addEventListener('pointerup',()=>removeEventListener('pointermove',mv),{once:true})};
+const track=(mv,up)=>{addEventListener('pointermove',mv);addEventListener('pointerup',()=>{removeEventListener('pointermove',mv);up&&up()},{once:true})};
+function initPip(){S.pipInit=true;const W=S.W,H=S.H;S.r[2]={x:0,y:0,w:W,h:H};S.r[1]={x:W*.55,y:H*.05,w:W*.4,h:H*.4};S.pip={x:.66,y:.05,w:.3};if(S.sel.pip==='orig')S.fp=W/H;S.a[2]=S.fp;if(S.fp){S.r[2].ar=W*H;setAsp(2)}}
+c2.onpointerdown=e=>{if(S.mode!=='pip')return;e.preventDefault();const rc=F.getBoundingClientRect(),P=S.pip,o={x:P.x,y:P.y},h=pipH(),T=.03;
+  const sn=(v,mx)=>{for(const t of[0,mx/2,mx])if(Math.abs(v-t)<T)return t;return v};
+  track(v=>{P.x=sn(clamp(o.x+(v.clientX-e.clientX)/rc.width,0,1-P.w),1-P.w);P.y=sn(clamp(o.y+(v.clientY-e.clientY)/rc.height,0,1-h),1-h);sync()})};
+$('pz').onpointerdown=e=>{e.preventDefault();e.stopPropagation();const rc=F.getBoundingClientRect(),P=S.pip,[a1,fa]=pipA(),k=a1/fa,h0=pipH(),[ax,ay]=(S.pAnc=pipAnc());
+  const x0=P.x,y0=P.y,R=x0+P.w,B=y0+h0,cx=x0+P.w/2,cy=y0+h0/2;
+  const mxw=Math.min(1,ax===1?R:ax===.5?2*Math.min(cx,1-cx):1-x0,k*(ay===1?B:ay===.5?2*Math.min(cy,1-cy):1-y0));
+  track(v=>{const px=(v.clientX-rc.left)/rc.width,py=(v.clientY-rc.top)/rc.height;
+    const wx=ax===1?R-px:px-x0,wy=k*(ay===1?B-py:py-y0),w0=ax===.5?wy:ay===.5?wx:Math.max(wx,wy);
+    const w=clamp(w0,.05,mxw),h=w/k;P.w=w;P.x=ax===1?R-w:ax===.5?cx-w/2:x0;P.y=ay===1?B-h:ay===.5?cy-h/2:y0;sync()},()=>{S.pAnc=null;sync()})};
+function setMode(m){if(S.mode===m)m='none';if(S.mode==='pip')for(const i of[1,2])S.r[i].ar=S.r[i].w*S.r[i].h;S.mode=m;
+  for(const[id,k]of[['mFull','full'],['mStack','stack'],['mPip','pip']])$(id).classList.toggle('on',m===k);
+  $('ctl').hidden=m==='none';if(m==='pip'&&!S.pipInit)initPip();
+  buildCrops();if(m==='none')sync();else{fillRatio();applyRatio()}}
+$('mFull').onclick=()=>setMode('full');$('mStack').onclick=()=>setMode('stack');$('mPip').onclick=()=>setMode('pip');
+$('ctl').hidden=true;
+$('mu').onclick=()=>{vid.muted=!vid.muted;{const m=vid.muted,b=$('mu');b.innerHTML=IC(m?'speaker-x-fill':'speaker-high-fill');b.dataset.tip=m?'Sound off':'Sound on';b.setAttribute('aria-label',b.dataset.tip)}};
+$('rot').onclick=()=>{S.rot=(S.rot+90)%360;setDims();resetCrops();buildCrops();resize();sync()};
+
+/* ---------- timeline ---------- */
+function tpos(t){const a=S.v0,b=S.v1||S.dur||1;return(t-a)/(b-a)}
+function tl(){const p0=tpos(S.t0),p1=tpos(S.t1),c=clamp;$('sel').style.left=c(p0,0,1)*100+'%';$('sel').style.width=(c(p1,0,1)-c(p0,0,1))*100+'%';
+  for(const[id,p]of[['hs',p0],['he',p1]]){const e=$(id);e.style.left=p*100+'%';e.style.display=p<0||p>1?'none':''}
+  $('ts').value=fmt(S.t0);$('te').value=fmt(S.t1);est();drawWf()}
+trk.onpointerdown=e=>{e.preventDefault();const rc=trk.getBoundingClientRect(),w=e.target.id,hd=w==='hs'||w==='he',sx=e.clientX,sy=e.clientY;
+  let zm=null;
+  const T=v=>zm?clamp(zm.t+(v.clientX-zm.x)/rc.width*(S.v1-S.v0),S.v0,S.v1):S.v0+clamp((v.clientX-rc.left)/rc.width,0,1)*((S.v1||S.dur)-S.v0);
+  const off=w==='hs'?S.t0-T(e):w==='he'?S.t1-T(e):0; /* keeps the grabbed handle under the cursor */
+  const inR=!hd&&(x=>x>=S.t0&&x<=S.t1)(T(e)),o0=S.t0,len=S.t1-S.t0;let moved=false;
+  const hw=hd?holdWatch(e,v=>{const th=w==='hs'?S.t0:S.t1,W=Math.min(S.dur,Math.max(3,S.dur*.08)),f=clamp(tpos(th),0,1);
+    S.v0=clamp(th-f*W,0,S.dur-W);S.v1=S.v0+W;zm={t:th,x:v.clientX};trk.classList.add('zm');dbg('timeline zoom on',{handle:w,window:[S.v0,S.v1]});tl()}):null;
+  const mv=v=>{hw&&hw.move(v);const t=zm?T(v):T(v)+off;
+    if(w==='hs'){S.t0=Math.min(t,S.t1-.1);vid.currentTime=S.t0}else if(w==='he'){S.t1=Math.max(t,S.t0+.1);vid.currentTime=S.t1}
+    else if(inR){if(!moved&&Math.hypot(v.clientX-sx,v.clientY-sy)>4)moved=true;
+      if(moved){const nt=clamp(o0+(v.clientX-sx)/rc.width*((S.v1||S.dur)-S.v0),0,S.dur-len);S.t0=nt;S.t1=nt+len;vid.currentTime=S.t0}else vid.currentTime=t}
+    else vid.currentTime=t;
+    tl();sync()};
+  const up=()=>{hw&&hw.stop();removeEventListener('pointermove',mv);if(zm){S.v0=0;S.v1=S.dur;trk.classList.remove('zm');tl()}};
+  mv(e);addEventListener('pointermove',mv);addEventListener('pointerup',up,{once:true})};
+trk.onpointermove=e=>{if(e.buttons)return;const rc=trk.getBoundingClientRect(),t=S.v0+(e.clientX-rc.left)/rc.width*((S.v1||S.dur)-S.v0);trk.style.cursor=e.target.id==='trk'&&t>=S.t0&&t<=S.t1?'grab':'pointer'};
+$('ts').onchange=()=>{const t=parse($('ts').value);if(!isNaN(t))S.t0=clamp(t,0,S.t1-.1);tl();vid.currentTime=S.t0};
+$('te').onchange=()=>{const t=parse($('te').value);if(!isNaN(t))S.t1=clamp(t,S.t0+.1,S.dur);tl();vid.currentTime=S.t1};
+$('pl').onclick=()=>{if(vid.paused){if(vid.currentTime<S.t0||vid.currentTime>=S.t1-.05)vid.currentTime=S.t0;vid.play()}else vid.pause()};
+
+/* ---------- analysis / planning ---------- */
+const ri=r=>{const x=clamp(Math.round(r.x),0,S.W-2),y=clamp(Math.round(r.y),0,S.H-2);
+  return{x,y,w:Math.max(2,Math.min(Math.round(r.w),S.W-x)),h:Math.max(2,Math.min(Math.round(r.h),S.H-y))}};
+const CD={h264:{enc:'libx264',ext:'mp4',ac:'aac',eff:1,n:'H.264'},h265:{enc:'libx265',ext:'mp4',ac:'aac',eff:.6,n:'H.265'},vp9:{enc:'libvpx-vp9',ext:'webm',ac:'libopus',eff:.65,n:'VP9'},vp8:{enc:'libvpx',ext:'webm',ac:'libopus',eff:1.2,n:'VP8'},av1:{enc:'libsvtav1',ext:'mp4',ac:'libopus',eff:.5,n:'AV1'}};
+const SRC={h264:'h264',hevc:'h265',vp9:'vp9',vp8:'vp8',av1:'av1'};
+$('codec').innerHTML=Object.entries(CD).map(([k,c])=>`<option value="${k}">${c.n}</option>`).join('');
+function scaleF(w,h){const v=$('maxs').value;if(v==='src'){const L=Math.max(S.W,S.H),M=Math.min(S.W,S.H);return Math.min(1,L/Math.max(w,h),M/Math.min(w,h))}return+v?Math.min(1,+v/Math.max(w,h)):1}
+function outLayout(){
+  if(S.mode==='pip'){const r=ri(S.r[2]),q=ri(S.r[1]),f=scaleF(r.w,r.h),w=ev(r.w*f),h=ev(r.h*f);clampPip();
+    const ow=Math.min(w,ev(S.pip.w*w)),oh=Math.min(h,ev(ow*q.h/q.w));
+    return{w,h,ow,oh,ox:clamp(Math.round(S.pip.x*w),0,w-ow),oy:clamp(Math.round(S.pip.y*h),0,h-oh)}}
+  if(S.mode!=='stack'){const r=ri(R(0)),f=scaleF(r.w,r.h);return{w:ev(r.w*f),h:ev(r.h*f)}}
+  const A=S.fw/S.fh,a=ri(S.r[1]),b=ri(S.r[2]),vert=A<1;let w,h;
+  if(vert){w=Math.max(a.w,b.w);h=w/A}else{h=Math.max(a.h,b.h);w=h*A}
+  const f=scaleF(w,h);w=ev(w*f);h=ev(h*f);
+  const d=vert?h:w,p=clamp(ev(d*S.s),2,d-2);return{w,h,vert,p}}
+function plan(noSmart){const q=+$('q').value,I=S.info||{},dur=Math.max(.1,S.t1-S.t0),L=outLayout(),sk=SRC[I.vcodec]||'h264';
+  const fN=+$('fps').value,fpsOn=fN>0&&fN<(I.fps||30)-.5,r0=ri(R(0)),uncropped=(S.mode==='none'||S.mode==='full')&&r0.w>=S.W-2&&r0.h>=S.H-2;
+  const smart=!noSmart&&q===100&&uncropped&&!S.rot&&scaleF(r0.w,r0.h)>=1&&!!SRC[I.vcodec]&&sk!=='av1'&&!fpsOn&&$('codec').value===sk&&$('am').value!=='enc'&&!+$('vb').value&&!+$('ab').value&&$('crf').value===''&&$('fps').value==='0';
+  const key=$('codec').value,cd=CD[key],vb0=I.vbr||S.file.size*8/S.dur/1000;
+  const content=S.mode==='stack'||S.mode==='pip'?[1,2].reduce((t,i)=>{const r=ri(S.r[i]);return t+r.w*r.h},0):r0.w*r0.h;
+  let vbr=vb0/(S.vw*S.vh)*Math.min(content,L.w*L.h)*Math.pow(.04,1-q/100)*cd.eff/CD[sk].eff*(fpsOn?Math.pow(fN/(I.fps||30),.7):1);
+  if(smart)vbr=vb0;if(+$('vb').value)vbr=+$('vb').value;vbr=Math.max(50,Math.round(vbr));
+  const crf=$('crf').value.trim(),ext=smart?(S.inn.endsWith('.webm')?'webm':S.inn.endsWith('.mkv')?'mkv':'mp4'):cd.ext;
+  const canCopy=!!I.acodec&&(ext==='mkv'||(ext==='webm'?['opus','vorbis']:['aac','mp3','ac3','opus']).includes(I.acodec));
+  let ab=Math.round((q<50?64:q<70?96:128)*(cd.ac==='libopus'?.75:1));const am=$('am').value;
+  const acopy=am==='copy'?canCopy:am==='enc'?false:canCopy&&(smart||q>85||(I.abr>0&&I.abr<=ab*1.15));
+  if(+$('ab').value)ab=+$('ab').value;
+  const muted=vid.muted,abr=muted?0:acopy?(I.abr||128):ab;
+  const size=smart?(I.br||vb0+(I.abr||0))*dur/8*1000:(vbr+abr)*dur/8*1000*1.02;
+  return{fps:fpsOn?fN:0,q,smart,key,cd,sk,vbr,vb0,crf,ext,ab,acopy,muted,abr,size,dur,L}}
+function est(){if(!S.W||!S.file)return;const p=plan(),I=S.info,mb=x=>(x/1048576).toFixed(1)+' MB',ref=I&&I.br?I.br*p.dur/8*1000:0;
+  $('qv').textContent=p.q+'%';
+  const v=p.smart?'Smart cut (stream copy; re-encodes only up to the first keyframe)':`${p.cd.n} ${p.crf!==''?'CRF '+p.crf:p.vbr+' kb/s'}, audio ${p.muted?'off':p.acopy?'copy':p.ab+' kb/s '+p.cd.ac.replace('lib','')}`;
+  $('est').textContent=v+' → '+(p.crf!==''&&!p.smart?'size depends on content':'≈ '+mb(p.size))+(ref?` (source clip ≈ ${mb(ref)})`:'')+` · .${p.ext}`;
+  $('sinfo').textContent=I?`Source: ${I.vcodec||'?'} ${Math.round(I.vbr)} kb/s, ${I.fps} fps; audio ${I.acodec||'none'}${I.abr?' '+I.abr+' kb/s':''}`:'Analyzing source…';cmdText(p);hwNote(p)}
+function qui(){est()}
+function defCodec(){const k=SRC[(S.info||{}).vcodec];if(k&&!S.codecTouched)$('codec').value=k}
+$('q').oninput=qui;
+for(const id of['codec','preset','vb','crf','am','ab','fps','encsel'])$(id).oninput=est;
+$('codec').addEventListener('input',()=>{S.codecTouched=true});
+$('maxs').onchange=sync;vid.onvolumechange=est;
+function updEnc(){}
+
+/* ---------- ffmpeg ---------- */
+let ff,ffP,log=[],step='Encoding ',cancelled=false,sink=null,Q=Promise.resolve();
+const ffq=fn=>{const r=Q.then(fn);Q=r.catch(()=>{});return r};
+function engine(){return ffP||(ffP=(async()=>{$('eng').textContent='Loading ffmpeg.wasm…';ff=new FFmpegWASM.FFmpeg();const T=FFmpegUtil.toBlobURL;
+  const B='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm',V='https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd';
+  ff.on('log',({message})=>{if(sink)return sink(message);dbg('ffmpeg:',message);log.push(message);if(log.length>4000)log.shift()});
+  ff.on('progress',({progress})=>{if(sink)return;const v=clamp(progress,0,1);$('pg').value=v;$('msg').textContent=step+Math.round(v*100)+'%'});
+  await ff.load({coreURL:await T(B+'/ffmpeg-core.js','text/javascript'),wasmURL:await T(B+'/ffmpeg-core.wasm','application/wasm'),classWorkerURL:await T(V+'/814.ffmpeg.js','text/javascript')});
+  if(!S.enc){log=[];await ff.exec(['-hide_banner','-encoders']);S.enc=new Set(log.map(l=>(/^\s*V\S{5}\s+(\S+)/.exec(l)||[])[1]).filter(Boolean));updEnc()}
+  dbg('ffmpeg.wasm ready; encoders:',S.enc?[...S.enc].filter(e=>/lib(x26|vpx|svt|aom|opus)|^aac/.test(e)).join(', '):'?');$('eng').textContent='WebCodecs via Mediabunny · ffmpeg.wasm ready'})().catch(e=>{ffP=null;$('eng').textContent='Encoder failed to load: '+(e&&e.message||e);throw e}))}
+async function putInput(){if(S.inFS)return;await ff.writeFile(S.inn,await FFmpegUtil.fetchFile(S.file));S.inFS=true}
+function analyzeFF(){return ffq(async()=>{await engine();await putInput();log=[];await ff.exec(['-hide_banner','-i',S.inn]);
+  const t=log.join('\n'),m=r=>r.exec(t),n=x=>x?+x[1]:0;
+  const I={vcodec:(m(/Video: (\w+)/)||[])[1],acodec:(m(/Audio: (\w+)/)||[])[1],abr:n(m(/Audio:[^\n]*?(\d+) kb\/s/)),fps:n(m(/Video:[^\n]*?([\d.]+) fps/))||30,br:n(m(/bitrate: (\d+) kb\/s/))};
+  I.vbr=n(m(/Video:[^\n]*?(\d+) kb\/s/))||Math.max(100,(I.br||S.file.size*8/S.dur/1000)-I.abr);if(!I.br)I.br=I.vbr+I.abr;
+  S.info=I})}
+async function run(a){log=[];dbg('ffmpeg exec: ffmpeg '+a.map(shq).join(' '));const tt=performance.now();let c;try{c=await ff.exec(a)}catch(e){dbg('ffmpeg exec threw',e);throw new Error((e&&e.message||e)+' (while running: ffmpeg '+a.slice(0,16).map(shq).join(' ')+' …)')}dbg('ffmpeg exit code',c,Math.round(performance.now()-tt)+' ms');if(c)throw new Error(log.slice(-4).join(' | '))}
+const T3=x=>x.toFixed(3);
+function encArgs(p){const k=p.key,a=['-c:v',p.cd.enc],sp=+$('preset').value;
+  if(k==='h264'||k==='h265')a.push('-preset',['ultrafast','veryfast','medium'][sp]);
+  else if(k==='av1')a.push('-preset',['12','10','8'][sp]);
+  else a.push('-deadline',sp?'good':'realtime','-cpu-used',['8','5','2'][sp]);
+  if(p.crf!=='')a.push('-crf',p.crf,...(k==='vp9'?['-b:v','0']:k==='vp8'?['-b:v','4M']:[]));
+  else a.push('-b:v',p.vbr+'k','-maxrate',Math.round(p.vbr*1.5)+'k','-bufsize',p.vbr*3+'k');
+  a.push('-pix_fmt','yuv420p');if(k==='h265')a.push('-tag:v','hvc1','-x265-params','log-level=error');return a}
+const aArgs=p=>p.muted?['-an']:p.acopy?['-c:a','copy']:['-c:a',p.cd.ac,'-b:a',p.ab+'k'];
+function filt(p){const L=p.L,rot={0:[],90:['transpose=1'],180:['hflip','vflip'],270:['transpose=2']}[S.rot].concat(p.fps?['fps='+p.fps]:[]);
+  if(S.mode==='pip'){const a=ri(S.r[1]),b=ri(S.r[2]);
+    const g=`[0:v]${rot.length?rot.join(',')+',':''}split[a][b];[a]crop=${a.w}:${a.h}:${a.x}:${a.y},scale=${L.ow}:${L.oh}:flags=lanczos,setsar=1[o];[b]crop=${b.w}:${b.h}:${b.x}:${b.y},scale=${L.w}:${L.h}:flags=lanczos,setsar=1[m];[m][o]overlay=${L.ox}:${L.oy}[v]`;
+    return['-filter_complex',g,'-map','[v]',...(p.muted?[]:['-map','0:a?'])]}
+  if(S.mode!=='stack'){const c=ri(R(0));return['-vf',[...rot,`crop=${c.w}:${c.h}:${c.x}:${c.y}`,`scale=${L.w}:${L.h}:flags=lanczos`,'setsar=1'].join(',')]}
+  const z=[1,2].map(i=>ri(S.r[i])),sz=L.vert?[[L.w,L.p],[L.w,L.h-L.p]]:[[L.p,L.h],[L.w-L.p,L.h]];
+  const g=`[0:v]${rot.length?rot.join(',')+',':''}split[a][b];`+z.map((c,k)=>`[${'ab'[k]}]crop=${c.w}:${c.h}:${c.x}:${c.y},scale=${sz[k][0]}:${sz[k][1]}:flags=lanczos,setsar=1[${'tu'[k]}]`).join(';')+`;[t][u]${L.vert?'v':'h'}stack=inputs=2[v]`;
+  return['-filter_complex',g,'-map','[v]',...(p.muted?[]:['-map','0:a?'])]}
+const TS=p=>p.ext==='mp4'?['-video_track_timescale','90000']:[];
+function jobArgs(p,IN,OUT,forceMain){
+  if(!p.smart||forceMain)return{main:['-ss',T3(S.t0),'-i',IN,'-t',T3(S.t1-S.t0),...filt(p),...encArgs(p),...aArgs(p),...(p.ext==='mp4'?['-movflags','+faststart']:[]),'-y',OUT]};
+  const X=p.ext,hp={...p,key:p.sk,cd:CD[p.sk],crf:'',vbr:Math.round(p.vb0)};
+  return{head:['-ss',T3(S.t0),'-i',IN,'-t','__HEAD__','-an',...encArgs(hp),...TS(p),'-y','a.'+X],
+    copy:['-ss','__KF__','-i',IN,'-t','__TAIL__','-an','-c:v','copy','-avoid_negative_ts','make_zero',...TS(p),'-y','b.'+X],
+    mux:['-f','concat','-safe','0','-i','l.txt',...(p.muted?[]:['-ss',T3(S.t0),'-t',T3(S.t1-S.t0),'-i',IN]),'-map','0:v',...(p.muted?[]:['-map','1:a?']),'-c','copy',...(p.acopy||p.muted?[]:['-c:a',p.cd.ac,'-b:a',p.ab+'k']),'-y',OUT]}}
+async function keyframeAfter(t0){const M=await loadMB(),sink=new M.EncodedPacketSink(await mbIn(M).getPrimaryVideoTrack());
+  let k=await sink.getKeyPacket(t0);if(k&&k.timestamp>=t0-.02)return k.timestamp;
+  k=k?await sink.getNextKeyPacket(k):await sink.getFirstKeyPacket();return k?k.timestamp:undefined}
+async function smartCut(p){const t0=S.t0,t1=S.t1,X=p.ext,j=jobArgs(p,S.inn,'out.'+X),sub=(a,m)=>a.map(x=>x in m?m[x]:x);
+  let kf;
+  try{kf=await keyframeAfter(t0);dbg('smart cut: first keyframe >= start (Mediabunny)',kf,'start',t0)}
+  catch(e){dbg('Mediabunny keyframe lookup failed, scanning with ffmpeg',e);step='Scanning keyframes ';log=[];
+    await ff.exec(['-hide_banner','-skip_frame','nokey','-t',T3(t1+1),'-i',S.inn,'-an','-vf','showinfo','-f','null','-']);
+    const ks=log.map(l=>/pts_time:([\d.]+)/.exec(l)).filter(Boolean).map(m=>+m[1]).sort((a,b)=>a-b);kf=ks.find(t=>t>=t0-.02);dbg('smart cut: first keyframe >= start (ffmpeg)',kf)}if(kf===undefined||kf>=t1-.2){dbg('smart cut: no usable keyframe, full re-encode');return false}
+  const files=[];
+  if(kf>t0+.05){step='Smart cut: re-encoding head ';await run(sub(j.head,{__HEAD__:T3(kf-t0)}));files.push('a.'+X)}
+  step='Smart cut: copying ';await run(sub(j.copy,{__KF__:T3(kf),__TAIL__:T3(t1-kf)}));files.push('b.'+X);
+  await ff.writeFile('l.txt',files.map(f=>`file '${f}'`).join('\n'));await run(j.mux);return true}
+const shq=a=>/^[\w@%+=:,./-]+$/.test(a)?a:"'"+a.replace(/'/g,"'\\''")+"'";
+function cmdText(p){const out=S.file.name.replace(/\.\w+$/,'')+'-edit.'+p.ext,j=jobArgs(p,'__IN__','__OUT__');
+  const f=a=>['ffmpeg',...a].map(shq).join(' ').replaceAll('__IN__','"$IN"').replaceAll('__OUT__','"$OUT"').replaceAll('__HEAD__','"$HEAD"').replaceAll('__KF__','"$KF"').replaceAll('__TAIL__','"$TAIL"');
+  let t=`# native ffmpeg is much faster than wasm\nIN=${shq(S.file.name)}\nOUT=${shq(out)}\n`;
+  if(j.main)t+=f(j.main);
+  else t+=`# smart cut: re-encode up to the first keyframe, stream-copy the rest\nKF=$(ffprobe -v error -select_streams v:0 -show_entries packet=pts_time,flags -of csv=p=0 -read_intervals ${T3(S.t0)}% "$IN" | awk -F, '$2~/K/&&$1>=${T3(Math.max(0,S.t0-.02))}{print $1;exit}')\nHEAD=$(awk "BEGIN{print $KF-${T3(S.t0)}}")\nTAIL=$(awk "BEGIN{print ${T3(S.t1)}-$KF}")\n: > l.txt\nif awk "BEGIN{exit !($HEAD>0.05)}"; then\n  ${f(j.head)}\n  echo "file 'a.${p.ext}'" >> l.txt\nfi\n${f(j.copy)}\necho "file 'b.${p.ext}'" >> l.txt\n${f(j.mux)}\nrm -f a.${p.ext} b.${p.ext} l.txt`;
+  $('cmd').value=t}
+$('cpy').onclick=()=>navigator.clipboard.writeText($('cmd').value);
+function waveformFF(id){const I=S.info;if(!I||!I.acodec)return;
+  return ffq(async()=>{if(id!==S.wid)return;S.wfBusy=true;dbg('waveform (ffmpeg) start');const win=Math.max(.02,Math.min(.1,Math.round(S.dur/20)/100)),n=Math.round(16000*win),v=[];
+    try{await engine();await putInput();sink=m=>{const r=/RMS_level=(\S+)/.exec(m);if(r)v.push(r[1]==='-inf'?-100:+r[1])};
+      /* K-weighting (BS.1770): 38 Hz high-pass + 1.68 kHz high shelf, then RMS per window */
+      await ff.exec(['-hide_banner','-i',S.inn,'-vn','-af',`aresample=16000,highpass=f=38:poles=2:width_type=q:width=0.5,treble=g=4:f=1681:t=q:w=0.7071,asetnsamples=n=${n}:p=0,astats=metadata=1:reset=1:measure_perchannel=none:measure_overall=RMS_level,ametadata=mode=print:key=lavfi.astats.Overall.RMS_level`,'-f','null','-']);
+      sink=null;
+      if(id===S.wid&&v.length){const q=[...v].sort((a,b)=>a-b),hi=q[Math.floor(q.length*.98)];S.wf={win:n/16000,v:Float32Array.from(v),hi,lo:hi-45};drawWf()}
+    }catch(e){dbg('waveform (ffmpeg) failed',e)}finally{sink=null;S.wfBusy=false}})}
+function drawWf(){const c=$('wf'),d=devicePixelRatio||1,W=Math.round(c.clientWidth*d),H=Math.round(c.clientHeight*d);if(!W||!H)return;
+  if(c.width!==W||c.height!==H){c.width=W;c.height=H}const x=c.getContext('2d');x.clearRect(0,0,W,H);
+  const wf=S.wf,a=S.v0,b=S.v1||S.dur,mid=H/2;
+  if(!wf){x.fillStyle='#2a2d34';x.fillRect(0,mid-d,W,2*d);return}
+  const pitch=Math.max(2,Math.round(3*d)),bw=Math.max(1,Math.round(2*d)),step=(b-a)/W;
+  for(let px=0;px<W;px+=pitch){const ta=a+px*step,tb=a+(px+pitch)*step,i0=Math.max(0,Math.floor(ta/wf.win)),i1=Math.min(wf.v.length,Math.max(i0+1,Math.ceil(tb/wf.win)));
+    let m=-100;for(let i=i0;i<i1;i++)if(wf.v[i]>m)m=wf.v[i];
+    const h=Math.max(2*d,clamp((m-wf.lo)/(wf.hi-wf.lo),0,1)*H*.9),tm=(ta+tb)/2;
+    x.fillStyle=tm>=S.t0&&tm<=S.t1?'#6db4ff':'#4a4f5c';x.fillRect(px,mid-h/2,bw,h)}}
+addEventListener('resize',drawWf);
+/* ---------- Mediabunny (WebCodecs) ---------- */
+let mbP;const loadMB=()=>mbP||(mbP=(dbg('loading Mediabunny 1.61.0'),import('https://cdn.jsdelivr.net/npm/mediabunny@1.61.0/dist/bundles/mediabunny.min.mjs')).then(m=>{dbg('Mediabunny loaded');return m}).catch(e=>{mbP=null;console.error('[clip] Mediabunny failed to load',e);throw e}));
+const MBC={h264:'avc',h265:'hevc',vp9:'vp9',vp8:'vp8',av1:'av1'},MIME={mp4:'video/mp4',webm:'video/webm',mkv:'video/x-matroska'};
+const mbIn=M=>new M.Input({source:new M.BlobSource(S.file),formats:M.ALL_FORMATS});
+async function probeMB(){const M=await loadMB(),inp=mbIn(M),vt=await inp.getPrimaryVideoTrack(),at=await inp.getPrimaryAudioTrack();if(!vt)return false;
+  const dur=await inp.computeDuration(),vc=await vt.getCodec(),vs=await vt.computePacketStats(300);let acodec,abr=0;
+  if(at){acodec=await at.getCodec();abr=Math.round((await at.computePacketStats(300)).averageBitrate/1000)}
+  const br=S.file.size*8/dur/1000;
+  S.info={vcodec:vc==='avc'?'h264':vc,acodec:acodec||undefined,abr,fps:Math.round(vs.averagePacketRate*100)/100||30,br:Math.round(br),vbr:Math.max(100,br-abr)};dbg('probe (Mediabunny)',{...S.info,duration:dur,fileBytes:S.file.size});return true}
+function analyze(){S.an=(async()=>{let ok=false;try{ok=await probeMB()}catch(e){dbg('Mediabunny probe failed',e)}if(!ok){dbg('probing with ffmpeg.wasm instead');await analyzeFF();dbg('probe (ffmpeg)',S.info)}defCodec();qui();waveform()})().catch(()=>{})}
+/* K-weighted loudness envelope decoded with WebCodecs (BS.1770 pre-filter + RLB high-pass), ffmpeg as fallback */
+function kCoefs(fs){let K=Math.tan(Math.PI*1681.974450955533/fs),Vh=Math.pow(10,3.999843853973347/20),Vb=Math.pow(Vh,.4996667741545416),Q=.7071752369554196,a0=1+K/Q+K*K;
+  const s1=[(Vh+Vb*K/Q+K*K)/a0,2*(K*K-Vh)/a0,(Vh-Vb*K/Q+K*K)/a0,2*(K*K-1)/a0,(1-K/Q+K*K)/a0];
+  K=Math.tan(Math.PI*38.13547087602444/fs);Q=.5003270373238773;a0=1+K/Q+K*K;return[s1,[1,-2,1,2*(K*K-1)/a0,(1-K/Q+K*K)/a0]]}
+async function waveformMB(id){const M=await loadMB(),at=await mbIn(M).getPrimaryAudioTrack();if(!at||!(await at.canDecode()))return false;
+  const fs=await at.getSampleRate(),win=Math.max(.02,Math.min(.1,Math.round(S.dur/20)/100)),nW=Math.round(fs*win),[A,B]=kCoefs(fs),sum=[],cnt=[];let st=null,fr=0,first=true,k=0;
+  for await(const s of new M.AudioSampleSink(at).samples()){
+    if(id!==S.wid){s.close();return true}
+    const nc=s.numberOfChannels,n=s.numberOfFrames,ch=[];if(!st)st=Array.from({length:nc},()=>new Float64Array(4));
+    if(first){fr=Math.max(0,Math.round(s.timestamp*fs));first=false}
+    for(let c=0;c<nc;c++){const f=new Float32Array(n);s.copyTo(f,{planeIndex:c,format:'f32-planar'});ch.push(f)}
+    s.close();
+    for(let i=0;i<n;i++){let pw=0;
+      for(let c=0;c<nc;c++){const z=st[c],x=ch[c][i],y=A[0]*x+z[0];z[0]=A[1]*x-A[3]*y+z[1];z[1]=A[2]*x-A[4]*y;
+        const y2=B[0]*y+z[2];z[2]=B[1]*y-B[3]*y2+z[3];z[3]=B[2]*y-B[4]*y2;pw+=y2*y2}
+      const w=(fr++/nW)|0;sum[w]=(sum[w]||0)+pw;cnt[w]=(cnt[w]||0)+1}
+    if((++k&63)===0)await new Promise(r=>setTimeout(r))}
+  const v=Float32Array.from(sum,(x,i)=>x==null?-100:Math.max(-100,10*Math.log10(x/cnt[i]+1e-10)));
+  if(id===S.wid&&v.length){const q=[...v].sort((a,b)=>a-b),hi=q[Math.floor(q.length*.98)];S.wf={win:nW/fs,v,hi,lo:hi-45};drawWf()}return true}
+async function waveform(){const id=S.wid=(S.wid||0)+1;if(!S.info||!S.info.acodec){dbg('waveform: no audio track');return}const t=performance.now();let ok=false;
+  try{ok=await waveformMB(id)}catch(e){dbg('waveform (WebCodecs) failed',e)}
+  dbg('waveform (WebCodecs)',ok?'done':'unavailable',Math.round(performance.now()-t)+' ms',S.wf?{points:S.wf.v.length,window:S.wf.win}:'');
+  if(!ok&&id===S.wid){dbg('waveform: falling back to ffmpeg.wasm');return waveformFF(id)}}
+const hwC={};let hwTok=0,hwT=0;
+async function hwPick(p){let M;try{M=await loadMB()}catch(e){return null}
+  const c=MBC[p.key],ac=p.cd.ac==='libopus'?'opus':'aac',k=[p.key,p.L.w,p.L.h,p.muted,ac].join();if(k in hwC)return hwC[k];let r=null;
+  try{for(const hw of['prefer-hardware','no-preference'])if(await M.canEncodeVideo(c,{width:p.L.w,height:p.L.h,bitrate:p.vbr*1000,hardwareAcceleration:hw})){r=hw;break}
+    if(r&&!p.muted&&!(await M.canEncodeAudio(ac)))r=null}catch(e){r=null}
+  dbg('hwPick',k,'→',r||'unsupported');return hwC[k]=r}
+function hwNote(p){const t=++hwTok,el=$('hwn'),sel=$('encsel').value;clearTimeout(hwT);
+  if(p.smart){el.textContent='Encoder: ffmpeg.wasm (smart cut stream copy).';return}
+  if(sel==='sw'){el.textContent='Encoder: ffmpeg.wasm (software).';return}
+  if(p.crf!==''){el.textContent='Encoder: ffmpeg.wasm (CRF mode).';return}
+  hwT=setTimeout(()=>hwPick(p).then(r=>{if(t===hwTok)el.textContent=r?'Encoder: WebCodecs (hardware preferred).':sel==='hw'?'Hardware encoding is unavailable for this configuration.':'WebCodecs can\'t encode this configuration; will use ffmpeg.wasm.'}),250)}
+function showResult(blob,p,via){dbg('export done via',via,{bytes:blob.size,layout:p.L,totalMs:Math.round(performance.now()-(S.tStart||0))});const u=URL.createObjectURL(blob),m=x=>(x/1048576).toFixed(2)+' MB',L=p.L;
+  $('res').innerHTML=`<video class="res" controls src="${u}"></video><div class="row" style="margin-top:8px"><a class="btn" download="${S.file.name.replace(/\.\w+$/,'')}-edit.${p.ext}" href="${u}">${IC('download')} Download</a><span class="mu">${L.w}×${L.h}, ${m(blob.size)}${p.smart?' (smart cut)':''} · ${via}</span></div>`;
+  $('res').hidden=false;$('st').hidden=true}
+async function exportMB(p){const acc=await hwPick(p);if(!acc){dbg('WebCodecs cannot encode this configuration');return false}const M=await loadMB(),L=p.L,I=S.info||{};
+  const mkOut=()=>new M.Output({format:p.ext==='webm'?new M.WebMOutputFormat():new M.Mp4OutputFormat({fastStart:'in-memory'}),target:new M.BufferTarget()});
+  const V={codec:MBC[p.key],bitrate:p.vbr*1000,hardwareAcceleration:acc,rotate:S.rot,allowTransformationMetadata:false,forceTranscode:true};
+  if(p.fps)V.frameRate=p.fps;
+  if(S.mode==='none'||S.mode==='full'){const c=ri(R(0));Object.assign(V,{crop:{left:c.x,top:c.y,width:c.w,height:c.h},width:L.w,height:L.h,fit:'fill'})}
+  else{const cv=new OffscreenCanvas(L.w,L.h),x=cv.getContext('2d'),a=ri(S.r[1]),b=ri(S.r[2]);x.imageSmoothingQuality='high';
+    if(S.mode==='pip')V.process=s=>{s.draw(x,b.x,b.y,b.w,b.h,0,0,L.w,L.h);s.draw(x,a.x,a.y,a.w,a.h,L.ox,L.oy,L.ow,L.oh);return cv};
+    else V.process=s=>{const[d1,d2]=L.vert?[[0,0,L.w,L.p],[0,L.p,L.w,L.h-L.p]]:[[0,0,L.p,L.h],[L.p,0,L.w-L.p,L.h]];
+      s.draw(x,a.x,a.y,a.w,a.h,...d1);s.draw(x,b.x,b.y,b.w,b.h,...d2);return cv};
+    V.processedWidth=L.w;V.processedHeight=L.h}
+  dbg('exportMB video options',{...V,process:V.process?'[canvas compositor]':undefined},'layout',L,'trim',[S.t0,S.t1]);
+  /* audio: copy packets when possible (Mediabunny copies when no codec/bitrate is requested); otherwise re-encode at a bitrate the browser's encoder accepts */
+  const aud=async want=>{const codec=p.cd.ac==='libopus'?'opus':'aac',at=await mbIn(M).getPrimaryAudioTrack();if(!at)return{discard:true};
+    const o={numberOfChannels:await at.getNumberOfChannels(),sampleRate:await at.getSampleRate()};
+    for(const kb of[want,...[256,192,160,128,96,64].filter(x=>x<want)])try{if(await M.canEncodeAudio(codec,{...o,bitrate:kb*1000}))return{codec,bitrate:kb*1000}}catch(e){}
+    return null};
+  const mk=async A=>{const out=mkOut();return[out,await M.Conversion.init({input:mbIn(M),output:out,trim:{start:S.t0,end:S.t1},video:V,audio:A,copy:{shiftTolerance:.25}})]};
+  const dsc=c=>c.discardedTracks.map(t=>({type:t.track.isAudioTrack()?'audio':'video',reason:t.reason}));
+  const aBad=c=>!p.muted&&c.discardedTracks.some(t=>t.track.isAudioTrack());
+  let A=p.muted?{discard:true}:p.acopy?{}:await aud(p.ab);if(!A)return false;
+  let[out,conv]=await mk(A);dbg('conversion init',{audio:A,valid:conv.isValid,discarded:dsc(conv)});
+  if(aBad(conv)&&p.acopy){A=await aud(Math.max(I.abr||0,p.ab));if(!A)return false;[out,conv]=await mk(A);dbg('audio retry',{audio:A,valid:conv.isValid,discarded:dsc(conv)})}
+  if(!conv.isValid)throw new Error('Conversion not possible: '+conv.discardedTracks.map(t=>t.reason).join(', '));
+  if(aBad(conv))return false;
+  S.mbc=conv;const t0=performance.now();let lp=-1;conv.onProgress=v=>{const q=Math.floor(v*10);if(q!==lp){lp=q;dbg('WebCodecs progress',q*10+'%',Math.round(performance.now()-t0)+' ms')}$('pg').value=v;$('msg').textContent='Encoding (WebCodecs) '+Math.round(v*100)+'%'};
+  try{await conv.execute()}finally{S.mbc=null}
+  if(cancelled)throw new Error('cancelled');
+  dbg('WebCodecs encode finished',Math.round(performance.now()-t0)+' ms');showResult(new Blob([out.target.buffer],{type:MIME[p.ext]}),p,'WebCodecs');return true}
+$('cancel').onclick=()=>{cancelled=true;dbg('cancel requested',S.mbc?'WebCodecs':'ffmpeg.wasm');if(S.mbc){S.mbc.cancel();return}if(ff){ff.terminate();ffP=null;S.inFS=false}};
+const resetFF=()=>{try{ff&&ff.terminate()}catch(e){}ffP=null;S.inFS=false};
+$('go').onclick=async()=>{const b=$('go');b.disabled=true;$('cancel').hidden=false;$('st').hidden=false;$('res').hidden=true;$('pg').value=0;cancelled=false;S.tStart=performance.now();let p;
+  try{p=plan();const sel=$('encsel').value;let done=false;
+    dbg('export start',{mode:S.mode,rotation:S.rot,trim:[S.t0,S.t1],encoderSetting:sel,quality:p.q,codec:p.key,videoKbps:p.vbr,crf:p.crf,fps:p.fps,smartCut:p.smart,audio:{muted:p.muted,copy:p.acopy,kbps:p.abr},container:p.ext,layout:p.L,source:S.info});
+    if(p.smart){$('msg').textContent=S.wfBusy?'Waiting for waveform analysis…':'Loading ffmpeg.wasm…';
+      try{done=await ffq(async()=>{if(cancelled)throw new Error('cancelled');await engine();await putInput();
+          if(S.enc&&!S.enc.has(CD[p.sk].enc))throw new Error('ffmpeg.wasm build lacks '+CD[p.sk].enc);
+          if(!(await smartCut(p)))return false;
+          const d=await ff.readFile('out.'+p.ext);showResult(new Blob([d.buffer],{type:MIME[p.ext]}),p,'ffmpeg.wasm');return true})}
+      catch(e){if(cancelled)throw e;console.warn('[clip] smart cut failed, re-encoding instead',e);$('msg').textContent='Smart cut failed ('+(e&&e.message||e)+'); re-encoding…';resetFF()}
+      if(!done){dbg('smart cut unavailable; falling back to full re-encode');p=plan(true)}}
+    if(!done&&sel!=='sw'&&p.crf===''){$('msg').textContent='Starting WebCodecs encoder…';
+      try{done=await exportMB(p)}catch(e){if(cancelled||sel==='hw')throw e;console.warn('WebCodecs failed, falling back',e)}
+      if(!done&&sel==='hw')throw new Error('Hardware encoding is not available for this configuration.')}
+    if(!done){dbg('using ffmpeg.wasm',S.wfBusy?'(waiting for waveform job first)':'');$('msg').textContent=S.wfBusy?'Waiting for waveform analysis…':'Loading ffmpeg.wasm…';
+      await ffq(async()=>{if(cancelled)throw new Error('cancelled');await engine();await putInput();
+        if(S.enc&&!S.enc.has(p.cd.enc))throw new Error(p.cd.n+' can\'t be encoded here: WebCodecs doesn\'t support it in this browser and this ffmpeg.wasm build lacks '+p.cd.enc);
+        step='Encoding ';await run(jobArgs(p,S.inn,'out.'+p.ext).main);
+        const d=await ff.readFile('out.'+p.ext);showResult(new Blob([d.buffer],{type:MIME[p.ext]}),p,'ffmpeg.wasm')})}}
+  catch(e){cancelled?dbg('export cancelled'):console.error('[clip] export failed',e);$('msg').textContent=cancelled?'Cancelled':'Failed: '+(e&&e.message||e)}
+  finally{b.disabled=false;$('cancel').hidden=true;if(!cancelled&&p&&ff)for(const f of['out.'+p.ext,'a.'+p.ext,'b.'+p.ext,'l.txt'])try{await ff.deleteFile(f)}catch(_){}}};
+if(window.ResizeObserver)new ResizeObserver(()=>{[S.fw,S.fh]=fitA(S.fw/S.fh);if(S.W)sync()}).observe($('fbox'));
+</script>
+</body>
+</html>
